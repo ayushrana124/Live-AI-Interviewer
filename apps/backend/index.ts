@@ -2,10 +2,12 @@ import express from "express";
 import { PORT } from "./src/config/config";
 import { PreInterviewBody } from "./src/types/types";
 import axios from "axios";
+import cors from "cors";
 import { scrapeGithub } from "./src/scraper/github";
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 app.get("/", (req, res) => {
     res.send("Hello World");
