@@ -1,9 +1,10 @@
 import express from "express";
-import { PORT } from "./src/config/config";
-import { PreInterviewBody } from "./src/types/types";
+import { PORT } from "./config/config";
+import { PreInterviewBody } from "./types/types";
 import axios from "axios";
 import cors from "cors";
-import { scrapeGithub } from "./src/scraper/github";
+import { scrapeGithub } from "./scraper/github";
+import {prisma} from "./db";
 
 const app = express();
 app.use(express.json());
@@ -27,10 +28,14 @@ app.post("/api/v1/pre-interview", async (req, res) => {
 
     const githubUsername : string = githubUrl.split("/").pop() as string;
 
-    const filteredRepos = await scrapeGithub(githubUsername);
-    console.log(filteredRepos);
+    const githubData = await scrapeGithub(githubUsername);
+    const interview = await prisma.interview.create({
+        data : {
+            githubMetadata : JSON.stringify(githubData),
+        }
+    })
     
-    res.send({ repos: filteredRepos });
+    res.send({ id : interview.id });
 
 })
 
