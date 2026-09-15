@@ -1,8 +1,7 @@
 import axios from "axios";
 
 export async function scrapeGithub(username : string ){
-    const userRepos = await axios.get(`https://api.github.com/users/${username}/repos`
-   )
+    const userRepos = await axios.get(`https://api.github.com/users/${username}/repos`);
     
    return userRepos.data.map((repo : any) => ({
            description: repo.description,

@@ -14,8 +14,8 @@ export function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Form />} />
-        <Route path="/interview/:id" element={<Interview />} />
-        <Route path="/result/:id" element={<Result />} />
+        <Route path="/interview/:InterviewId" element={<Interview />} />
+        <Route path="/result/:InterviewId" element={<Result />} />
       </Routes>
       <Toaster position="top-center" />
     </Router>

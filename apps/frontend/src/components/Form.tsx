@@ -1,23 +1,35 @@
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useState } from "react";
-import { toast } from "sonner"
+import { toast } from "sonner";
 import axios from "axios";
 import { BACKEND_URL } from "../lib/config";
+import { useNavigate } from "react-router";
 
 function Form() {
-
   const [github, setGithub] = useState<string>("");
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState<boolean>(false);
 
   async function onSubmit() {
-    if (!github) {
+    if (loading) return;
+
+    if (!github.trim()) {
       toast.error("Please fill in all fields");
+      return;
     }
 
-   await axios.post(`${BACKEND_URL}/api/v1/pre-interview`, {
-      github,
-   }
-    )
+    try {
+      setLoading(true);
+      const response = await axios.post(`${BACKEND_URL}/api/v1/pre-interview`, {
+        github : github.trim(),
+      });
+      navigate(`/interview/${response.data.id}`);
+    } catch (err) {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -30,10 +42,12 @@ function Form() {
           value={github}
           onChange={(e) => setGithub(e.target.value)}
         />
-        <Button onClick={onSubmit}>Start Interview</Button>
+        <Button disabled={loading} onClick={onSubmit}>
+          {loading ? "Starting Interview..." : "Start Interview"}
+        </Button>
       </div>
     </div>
-  )
+  );
 }
 
 export default Form;
