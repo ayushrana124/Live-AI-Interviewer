@@ -6,6 +6,7 @@ import cors from "cors";
 import { scrapeGithub } from "./scraper/github";
 import { prisma } from "./db";
 import { initSideband } from "./sideband";
+import { calculateResult } from "./result";
 
 const app = express();
 app.use(express.json());
@@ -41,7 +42,6 @@ app.post("/api/v1/pre-interview", async (req, res) => {
   res.send({ id: interview.id });
 });
 
-
 app.post("/api/v1/session/:interviewId", async (req, res) => {
   const sessionConfig = JSON.stringify({
     type: "realtime",
@@ -54,15 +54,17 @@ app.post("/api/v1/session/:interviewId", async (req, res) => {
   fd.set("session", sessionConfig);
 
   try {
-    const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "OpenAI-Safety-Identifier": "hashed-user-id",
+    const sdpResponse = await fetch(
+      "https://api.openai.com/v1/realtime/calls",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "OpenAI-Safety-Identifier": "hashed-user-id",
+        },
+        body: fd,
       },
-      body: fd,
-    });
-
+    );
 
     const location = sdpResponse.headers.get("Location");
     if (!location) {
@@ -70,7 +72,6 @@ app.post("/api/v1/session/:interviewId", async (req, res) => {
     }
     const callId = location.split("/").pop();
     console.log("callId", callId);
-
 
     // Send back the SDP we received from the OpenAI REST API
     const sdp = await sdpResponse.text();
@@ -86,44 +87,57 @@ app.post("/api/v1/session/:interviewId", async (req, res) => {
 });
 
 app.post("/api/v1/session/user/response/:interviewId", async (req, res) => {
- const {message} = req.body;
- await prisma.message.create({
-    data : {
-      interviewId : req.params.interviewId,
-      type : "User",
-      message : message,
-    }
- });
+  const { message } = req.body;
+  await prisma.message.create({
+    data: {
+      interviewId: req.params.interviewId,
+      type: "User",
+      message: message,
+    },
+  });
 });
 
-
-app.get("/api/v1/result/:intervireID", async (req,res) => {
+app.get("/api/v1/result/:intervireID", async (req, res) => {
   const interview = await prisma.interview.findFirst({
-    where : {
-      id : req.params.intervireID,
+    where: {
+      id: req.params.intervireID,
     },
-    include : {
-      conversations : true,
-    }
+    include: {
+      conversations: true,
+    },
   });
 
   if (!interview) {
     return res.status(404).json({ error: "Interview not found" });
   }
 
-  if(interview.status == "InProgress"){
-    
-  }
-
   res.json({
-    score : interview.score,
-    feedback : interview.feedback,
-    transcript : interview.conversations.map(x => ({
+    score: interview.score,
+    feedback: interview.feedback,
+    transcript: interview.conversations.map((x) => ({
       type: x.type,
       content: x.message,
       createdAt: x.createdAt,
-    }))
+    })),
+    status: interview.status
   });
+
+
+  // Add some sort of lock here to prevent multiple requests from calculating the result at the same time
+  if (interview.status != "Done") {
+    const result = await calculateResult(interview.conversations);
+
+    await prisma.interview.update({
+      where: {
+        id: req.params.intervireID,
+      },
+      data: {
+        status: "Done",
+        score: result.score,
+        feedback: result.feedback,
+      },
+    });
+  }
 });
 
 app.listen(PORT, () => {
