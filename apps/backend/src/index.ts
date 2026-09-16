@@ -85,6 +85,47 @@ app.post("/api/v1/session/:interviewId", async (req, res) => {
   }
 });
 
+app.post("/api/v1/session/user/response/:interviewId", async (req, res) => {
+ const {message} = req.body;
+ await prisma.message.create({
+    data : {
+      interviewId : req.params.interviewId,
+      type : "User",
+      message : message,
+    }
+ });
+});
+
+
+app.get("/api/v1/result/:intervireID", async (req,res) => {
+  const interview = await prisma.interview.findFirst({
+    where : {
+      id : req.params.intervireID,
+    },
+    include : {
+      conversations : true,
+    }
+  });
+
+  if (!interview) {
+    return res.status(404).json({ error: "Interview not found" });
+  }
+
+  if(interview.status == "InProgress"){
+    
+  }
+
+  res.json({
+    score : interview.score,
+    feedback : interview.feedback,
+    transcript : interview.conversations.map(x => ({
+      type: x.type,
+      content: x.message,
+      createdAt: x.createdAt,
+    }))
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

@@ -1,11 +1,18 @@
 import WebSocket from "ws";
+import { prisma } from "./db";
 
-export function initSideband(callId: string, interviewId: string) {
+export async function initSideband(callId: string, interviewId: string) {
   const url = "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1";
   const ws = new WebSocket(url, {
     headers: {
       Authorization: "Bearer " + process.env.OPENAI_API_KEY,
       "OpenAI-Safety-Identifier": "hashed-user-id",
+    },
+  });
+
+  const interview = await prisma.interview.findFirst({
+    where: {
+      id: interviewId,
     },
   });
 
@@ -19,16 +26,28 @@ export function initSideband(callId: string, interviewId: string) {
         session: {
           type: "realtime",
           instructions:
-            "You are supposed to interview the candidate and ask them questions about their GitHub profile. You should ask questions about their projects, contributions, and any other relevant information you can find on their GitHub profile. The goal is to assess the candidate's skills and experience based on their GitHub activity. only ask 3 questions also use only english language ",
+            `You are supposed to interview the candidate and ask them questions about their GitHub profile. You should ask questions about their projects, contributions, and any other relevant information you can find on their GitHub profile. The goal is to assess the candidate's skills and experience based on their GitHub activity. only ask 3 questions also use only english language
+            ##Github metadata
+            ${interview?.githubMetadata || "No GitHub metadata available"}
+             `,
         },
       }),
     );
   });
 
-  ws.on("message", function incoming(message) {
+  ws.on("message",async function incoming(message) {
   const parsedMessage= (JSON.parse(message.toString()));
   if(parsedMessage.type === "response.done"){
-    console.log(parsedMessage);
+    let contents : {type : string, transcript : string}[] = [];
+    parsedMessage.response?.output.map(x => contents = [...contents, ...x.content]);
+    const assistantMessage = contents.filter(x => x.type === "output_audio").map(x => x.transcript).join("");
+    await prisma.message.create({
+      data :{
+        interviewId : interviewId,
+        type : "Assistant",
+        message : assistantMessage,
+      }
+    })
   }
 });
 }

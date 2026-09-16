@@ -2,6 +2,7 @@ import { BACKEND_URL } from "@/lib/config";
 import { useEffect, useRef } from "react";
 import { useParams } from "react-router";
 import { DeepgramClient } from "@deepgram/sdk";
+import axios from "axios";
 
 export const Interview = () => {
   const client = new DeepgramClient();
@@ -42,35 +43,36 @@ export const Interview = () => {
         const transcript = received.channel.alternatives[0].transcript;
         if (transcript) {
           console.log("Transcript:", transcript);
+          axios.post(`{BACKEND_URL}/api/v1/session/${interviewId}/`, 
+            {message : transcript},
+          )
         }
       };
 
-      // // Send audio data
-      //   pc.addTrack(ms.getTracks()[0]!);
+      // Send audio data
+        pc.addTrack(ms.getTracks()[0]!);
 
-      //   // Set up data channel for sending and receiving events
-      //   //   const dc = pc.createDataChannel("oai-events");
+        // Set up data channel for sending and receiving events
+        //   const dc = pc.createDataChannel("oai-events");
 
-      //   // Start the session using the Session Description Protocol (SDP)
-      //   const offer = await pc.createOffer();
-      //   await pc.setLocalDescription(offer);
+        // Start the session using the Session Description Protocol (SDP)
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
 
-      //   console.log("offer", offer.sdp);
-      //   const sdpResponse = await fetch(`${BACKEND_URL}/api/v1/session/${interviewId}`, {
-      //     method: "POST",
-      //     body: offer.sdp,
-      //     headers: {
-      //       "Content-Type": "application/sdp",
-      //     },
-      //   });
+        const sdpResponse = await fetch(`${BACKEND_URL}/api/v1/session/user/response/${interviewId}`, {
+          method: "POST",
+          body: offer.sdp,
+          headers: {
+            "Content-Type": "application/sdp",
+          },
+        });
 
-      //   console.log("sdpResponse", sdpResponse);
-      //   const answer = {
-      //     type: "answer" as "answer",
-      //     sdp: await sdpResponse.text(),
-      //   };
-      //   await pc.setRemoteDescription(answer);
-      //
+        const answer = {
+          type: "answer" as "answer",
+          sdp: await sdpResponse.text(),
+        };
+        await pc.setRemoteDescription(answer);
+      
     })();
   }, [interviewId]);
 
